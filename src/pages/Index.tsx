@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { ExpenseForm } from '@/components/ExpenseForm';
 import { TotalsCard } from '@/components/TotalsCard';
 import { ExpenseList } from '@/components/ExpenseList';
@@ -10,7 +10,28 @@ import { type Expense } from '@/types/expense';
 const Index = () => {
   const [expenses, setExpenses] = useLocalStorage<Expense[]>('dailyExpenses', []);
   const { toast } = useToast();
-
+  // Daily reset using a cookie to track 24h expiry
+  useEffect(() => {
+    const cookieName = 'dailyExpensesExpiry';
+    const getCookie = (name: string) =>
+      document.cookie.split('; ').find((row) => row.startsWith(name + '='))?.split('=')[1];
+    const setCookie = (name: string, value: string, expires: Date) => {
+      document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+    };
+    const now = new Date();
+    const expiryStr = getCookie(cookieName);
+    if (!expiryStr) {
+      const expires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      setCookie(cookieName, String(expires.getTime()), expires);
+    } else {
+      const expiry = new Date(Number(expiryStr));
+      if (now > expiry) {
+        setExpenses([]);
+        const newExp = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        setCookie(cookieName, String(newExp.getTime()), newExp);
+      }
+    }
+  }, [setExpenses]);
   const handleAddExpense = useCallback((newExpense: Omit<Expense, 'id' | 'createdAt'>) => {
     const expense: Expense = {
       ...newExpense,
